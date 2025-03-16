@@ -12,6 +12,12 @@
 # Ko-Fi: https://ko-fi.com/mrcodedev                                                #
 #####################################################################################
 
+# Global variables settings
+source settings.env
+CLEAN_GITHUB_URL=$(echo "$GITHUB_URL_BEAMMP_SERVER" | tr -d '\r')
+BYE_TEXT="Bye :D!"
+
+# Version
 VERSION=0.0.1
 
 # Define variable colours
@@ -79,8 +85,7 @@ getLogo() {
     echo -e "$(getColor $BOLD $RED_TEXT "") |___/\\___\\__,_|_|_|_$(getColor $BOLD $WHITE_TEXT "")|_|\\_|\\___| $(getColor $BOLD $YELLOW_TEXT "")|___/\\___|_|  \\_/\\___|_|${END_COLOR}   "                                                        
 }
 
-showMenu() {
-    getLogo
+showDataAuthor() {
     echo -e "============================================================"
     echo -e "$(getColor $BOLD $RED_TEXT "")Beam${END_COLOR}$(getColor $BOLD $WHITE_TEXT "")NG${END_COLOR} $(getColor $BOLD $YELLOW_TEXT "")Server Linux Script!${END_COLOR}"
     echo -e "By MrCodeDev"
@@ -89,40 +94,111 @@ showMenu() {
     echo -e "$(getColor $BOLD $BLUE_TEXT "")Version:${END_COLOR} v${VERSION}"
     echo -e "$(getColor $BOLD $BLUE_TEXT "")Repo:${END_COLOR} https://github.com/mrcodedev/beamng-server-script"
     echo -e "============================================================"
+}
+
+showMenu() {
     echo -e ""
     echo -e "Select a option:"
     echo -e "================"
-    echo -e "  $(getColor $BOLD $BLUE_TEXT "")1) - Start Server:${END_COLOR} Init the Server."
-    echo -e "  $(getColor $BOLD $BLUE_TEXT "")2) - Stop Server:${END_COLOR} If the server is running, kill the process."
-    echo -e "  $(getColor $BOLD $BLUE_TEXT "")3) - Restart Server:${END_COLOR} Restart the server."
-    echo -e "  $(getColor $BOLD $BLUE_TEXT "")4) - Status Server:${END_COLOR} Check if the server is online."
-    echo -e "  $(getColor $BOLD $BLUE_TEXT "")5) - Show Server Log:${END_COLOR} Read the log of the server."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")1) - Download File Server:${END_COLOR} Download."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")2) - Install Server:${END_COLOR} Install with folder config."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")3) - Start Server:${END_COLOR} Init the Server."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")4) - Stop Server:${END_COLOR} If the server is running, kill the process."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")5) - Restart Server:${END_COLOR} Restart the server."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")6) - Status Server:${END_COLOR} Check if the server is online."
+    echo -e "  $(getColor $BOLD $BLUE_TEXT "")7) - Show Server Log:${END_COLOR} Read the log of the server."
     echo -e "  $(getColor $BOLD $BLUE_TEXT "")0) - Exit${END_COLOR}"
     echo -e ""
     echo -e "Type a number and press ENTER"
 }
 
 initScript() {
+    getLogo
+    showDataAuthor
     showMenu
+    bucleMenu
+}
+
+repeatMenu() {
+    showMenu
+    repeatOptions=true
+    bucleMenu
+}
+
+prepareDownload() {
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking tools to installation${END_COLOR}"
+    echo -e "=================================="
+    isInstalled wget
+    echo "Status wget ${statusWget}"
+    isInstalled curl
+    echo "Status  ${statusWget}"
+    urlExists $CLEAN_GITHUB_URL
+    echo ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading files${END_COLOR}"
+    echo -e "========================="
+    echo "💾 Starting to download file of BeamNG-Server..."
+    sleep 2s
+    downloadAndInstallServer
+}
+
+isInstalled() {
+    if !(dpkg -l | grep $1 > /dev/null); then
+        echo -e "❌ '${1}' installed on the system - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        echo -e "You must install '${1}', run 'sudo apt install ${1}'."
+        sleep 2s
+        echo -e "$BYE_TEXT"
+        exit 1
+    fi
+    echo -e "✅ '${1}' installed on the system - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+}
+
+urlExists() {
+    echo "🔎 Checking GitHub URL environment..."
+    if !(wget --spider -q $CLEAN_GITHUB_URL); then
+        echo -e "❌ No exists URL $CLEAN_GITHUB_URL - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        echo -e "Check configure 'settings.env' and set a URL on GITHUB_URL_BEAMMP_SERVER"
+        sleep 2s
+        echo -e "$BYE_TEXT"
+        exit 1
+    else
+        echo -e "✅ URL exists $CLEAN_GITHUB_URL - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+downloadAndInstallServer() {
+    mkdir -p download
+    wget -o download/download.log -nc --progress=bar --show-progress -P ./download $CLEAN_GITHUB_URL
+}
+
+
+bucleMenu() {
+    while $repeatOptions; do
+        read option
+        echo ""
+        case $option in
+            0|"exit"|"q") 
+                repeatOptions=false
+                echo -e "Goodbye ${USER}, see you later!!! :D";;
+            1|"download") 
+                prepareDownload
+                repeatMenu;;
+            2|"install") 
+                echo -e "Option $option selected";;
+            3|"start")
+                echo -e "Option $option selected";;
+            4|"stop")
+                echo -e "Option $option selected";;
+            5|"restart")
+                echo -e "Option $option selected";;
+            6|"status")
+                echo -e "Option $option selected";;   
+            7|"log")
+                echo -e "Option $option selected";;
+            *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
+        esac
+    done
 }
 
 initScript
-
-while $repeatOptions; do
-    read option
-    case $option in
-        0|"exit"|"q") repeatOptions=false
-           echo -e "Goodbye ${USER}, see you later!!! :D";;
-        1|"start") repeatOptions=false
-           echo -e "Option $option selected";;
-        2|"stop") repeatOptions=false
-           echo -e "Option $option selected";;
-        3|"restart") repeatOptions=false
-           echo -e "Option $option selected";;
-        4|"status") repeatOptions=false
-           echo -e "Option $option selected";;
-        5|"log") repeatOptions=false
-           echo -e "Option $option selected";;   
-        *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
-    esac
-done
