@@ -281,12 +281,14 @@ execCommandToInstall() {
 
 installFileServer() {
     if [[ ! -x  "../$SERVER_FOLDER/$1" ]]; then
-        echo "❌🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e "❌🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sleep 2s
         chmod +x "../$SERVER_FOLDER/$1"
     fi
 
     if [[ -x  "../$SERVER_FOLDER/$1" ]]; then
         echo -e "✅🔓 You have permissions to run the app BeamNG Server - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 2s
         echo -e ""
         echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading necessary dependencies for installation${END_COLOR}"
         echo -e "==================================================="
