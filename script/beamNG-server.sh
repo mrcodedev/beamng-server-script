@@ -15,11 +15,15 @@
 # Global variables settings
 source settings.env
 CLEAN_GITHUB_URL=$(echo "$GITHUB_URL_BEAMMP_SERVER" | tr -d '\r')
+README_URL="https://github.com/mrcodedev/beamng-server-script/blob/main/README.md"
 BYE_TEXT="Bye ${USER}, see you later :D!"
 DOWNLOAD_FOLDER="download"
 DOWNLOAD_FILE_LOG="download.log"
 SERVER_FOLDER="BeamNG-Server"
 SERVER_CONFIG_FILE="ServerConfig.toml"
+FOLDER_DATA_LOG="data"
+FILE_NAME_LOG="file-name-download-server.dat"
+FILE_PID_LOG="pid.dat"
 
 # Version
 VERSION=0.0.1
@@ -220,12 +224,30 @@ searchLogFile() {
 
 copyAndInstallFile() {
     mkdir -p "../${SERVER_FOLDER}/"
+    mkdir -p "../${SERVER_FOLDER}/$FOLDER_DATA_LOG"
+
 
     if [[ ! -d "../$SERVER_FOLDER" ]]; then
         echo -e "❌ The folder to copy file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
     else
         echo -e "✅ Created folder of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+
+    if [[ ! -d "../${SERVER_FOLDER}/$FOLDER_DATA_LOG" ]]; then
+        echo -e "❌ The folder data log server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Created folder data log of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+
+    if ! echo "$1" > "../${SERVER_FOLDER}/$FOLDER_DATA_LOG/$FILE_NAME_LOG"; then
+        echo -e "❌ Don't create log file name server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else 
+        echo -e "✅ Created log folder file name server "../$SERVER_FOLDER/$FOLDER_DATA_LOG/$FILE_NAME_LOG" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         sleep 0.5s
     fi
 
@@ -243,7 +265,7 @@ copyAndInstallFile() {
 execCommandToInstall() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing BeamNG Server:${END_COLOR}"
     echo -e "================================"
-    cd .. && cd "$SERVER_FOLDER" && ./"$1"
+    returnToServerFolder && ./"$1"
     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
         echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -269,19 +291,17 @@ execCommandToInstall() {
         sleep 2s
         echo -e "✅ The server file is installed, if you hasn't edit the config file "$(pwd)/ServerConfig.toml" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         echo -e ""
-        echo -e "📖 More info in README.md repo in the Authentication Key section: https://github.com/mrcodedev/beamng-server-script/blob/main/README.md"
+        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
         echo -e "--------------------------------"
         echo "👁️  Press any key to continue..."
         read -n 1 -s
-        cd .. && cd script
-        showMenu
-        bucleMenu
+        returnToScriptFolder
     fi
 }
 
 installFileServer() {
     if [[ ! -x  "../$SERVER_FOLDER/$1" ]]; then
-        echo -e "❌🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e "⚠️ 🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $YELLOW_TEXT "")RETRY${END_COLOR}"
         sleep 2s
         chmod +x "../$SERVER_FOLDER/$1"
     fi
@@ -297,7 +317,8 @@ installFileServer() {
         sleep 3s
 
         if [[ ! $(sudo apt-get install liblua5.3-dev curl zip unzip tar cmake make git g++) ]]; then
-            echo "❌⛔ Don't have the dependencies... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+            echo -e "❌⛔ Don't have the dependencies... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+            echo -e ""
             sayGoodbyeAfterError
         fi
 
@@ -308,8 +329,80 @@ installFileServer() {
         echo -e ""
         execCommandToInstall $1
     else 
-        echo "You are the evil"
+        echo -e "❌🔒 Don't have permissions to run the server file, :(... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo ""
+        sayGoodbyeAfterError
     fi
+}
+
+startServer() {
+    echo -e ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before start:${END_COLOR}"
+    echo -e "================================"
+    checkFileNameServer
+    checkConfigFile
+    checkAuthConfig
+    checkPID
+}
+
+checkFileNameServer() {
+    returnToServerFolder
+    FILE_NAME_SERVER=$(cat $FOLDER_DATA_LOG/$FILE_NAME_LOG 2> /dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    if [[ ! -f  ${FILE_NAME_SERVER} ]]; then
+        echo -e "❌ The log name server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exist the log name server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+checkConfigFile() {
+     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
+        echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exist the $SERVER_CONFIG_FILE file config :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+checkAuthConfig() {
+    AUTH_KEY=$(grep '^AuthKey =' ServerConfig.toml | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
+
+    if [[ -z "$AUTH_KEY" ]]; then
+        echo -e "❌ AuthKey has no value, you must give it a value, see the README to see how to do this - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
+        echo -e "--------------------------------"
+        echo "👁️  Press any key to continue..."
+        read -n 1 -s
+        echo -e ""
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ AuthKey has a value: $AUTH_KEY - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+checkPID() {
+    # CHECK IF HAVE PID
+        # TEST IN LOCAL TO START SERVER WITH PID AND SHOW THIS
+        # IF DONT HAVE THE FILE THE SERVER DON'T START NEVER
+        # IF HAVE THE FILE BUT IS EMPTY, THE SERVER IS DOWN, START SERVER
+        # IF HAVE PID CHECK IF IS IN THE PROCESS, AND IF IT IS IN THE PROCESSES ASK TO KILL AND START SERVER
+    if [[ ! -f  ${FILE_PID_LOG} ]]; then
+        echo "NO EXIST"
+    else
+        echo "EXIST"
+    fi
+}
+
+returnToScriptFolder() {
+    cd .. && cd script
+}
+
+returnToServerFolder() {
+    cd .. && cd "$SERVER_FOLDER"
 }
 
 sayGoodbyeAfterError() {
@@ -331,7 +424,7 @@ bucleMenu() {
                 repeatMenu;;
             2|"install") 
                 prepareInstall
-                echo -e "Option $option selected";;
+                repeatMenu;;
             3|"start")
                 echo -e "Option $option selected";;
             4|"stop")
@@ -344,7 +437,7 @@ bucleMenu() {
                 echo -e "Option $option selected";;
             t)
                 echo -e "Testing selected"
-                prepareInstall;;
+                startServer;;
             *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
         esac
     done
