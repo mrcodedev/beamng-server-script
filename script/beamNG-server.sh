@@ -24,6 +24,7 @@ SERVER_CONFIG_FILE="ServerConfig.toml"
 FOLDER_DATA_LOG="data"
 FILE_NAME_LOG="file-name-download-server.dat"
 FILE_PID_LOG="pid.dat"
+LOG_FOLDER="logs"
 
 # Version
 VERSION=0.0.1
@@ -226,7 +227,6 @@ copyAndInstallFile() {
     mkdir -p "../${SERVER_FOLDER}/"
     mkdir -p "../${SERVER_FOLDER}/$FOLDER_DATA_LOG"
 
-
     if [[ ! -d "../$SERVER_FOLDER" ]]; then
         echo -e "❌ The folder to copy file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -265,7 +265,7 @@ copyAndInstallFile() {
 execCommandToInstall() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing BeamNG Server:${END_COLOR}"
     echo -e "================================"
-    returnToServerFolder && ./"$1"
+    goToServerFolder && ./"$1"
     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
         echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -295,7 +295,7 @@ execCommandToInstall() {
         echo -e "--------------------------------"
         echo "👁️  Press any key to continue..."
         read -n 1 -s
-        returnToScriptFolder
+        goToScriptFolder
     fi
 }
 
@@ -339,15 +339,20 @@ startServer() {
     echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before start:${END_COLOR}"
     echo -e "================================"
-    checkFileNameServer
+    sleep 2s
+    goToServerFolder
+    checkFileServer
+    checkFileNameLogServer
     checkConfigFile
     checkAuthConfig
+    checkLogFolder
     checkPID
+    goToScriptFolder
+    repeatOptions=true
 }
 
-checkFileNameServer() {
-    returnToServerFolder
-    FILE_NAME_SERVER=$(cat $FOLDER_DATA_LOG/$FILE_NAME_LOG 2> /dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+checkFileNameLogServer() {
+    local FILE_NAME_SERVER=$(cat $ $FOLDER_DATA_LOG/$FILE_NAME_LOG 2> /dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
     if [[ ! -f  ${FILE_NAME_SERVER} ]]; then
         echo -e "❌ The log name server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
@@ -355,6 +360,17 @@ checkFileNameServer() {
         sayGoodbyeAfterError
     else
         echo -e "✅ Exist the log name server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+checkFileServer() {
+    local FILE_SERVER_NAME=$(cat $FOLDER_DATA_LOG/$FILE_NAME_LOG)
+    if [[ ! -f  ${FILE_SERVER_NAME} ]]; then
+        echo -e "❌ The file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exist the file server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     fi
 }
 
@@ -369,7 +385,7 @@ checkConfigFile() {
 }
 
 checkAuthConfig() {
-    AUTH_KEY=$(grep '^AuthKey =' ServerConfig.toml | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
+    local AUTH_KEY=$(grep '^AuthKey =' ServerConfig.toml | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
 
     if [[ -z "$AUTH_KEY" ]]; then
         echo -e "❌ AuthKey has no value, you must give it a value, see the README to see how to do this - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
@@ -378,30 +394,89 @@ checkAuthConfig() {
         echo "👁️  Press any key to continue..."
         read -n 1 -s
         echo -e ""
-        sayGoodbyeAfterError
+        repeatMenu
     else
         echo -e "✅ AuthKey has a value: $AUTH_KEY - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     fi
 }
 
-checkPID() {
-    # CHECK IF HAVE PID
-        # TEST IN LOCAL TO START SERVER WITH PID AND SHOW THIS
-        # IF DONT HAVE THE FILE THE SERVER DON'T START NEVER
-        # IF HAVE THE FILE BUT IS EMPTY, THE SERVER IS DOWN, START SERVER
-        # IF HAVE PID CHECK IF IS IN THE PROCESS, AND IF IT IS IN THE PROCESSES ASK TO KILL AND START SERVER
-    if [[ ! -f  ${FILE_PID_LOG} ]]; then
-        echo "NO EXIST"
+checkLogFolder() {
+    if [ ! -d "$LOG_FOLDER" ]; then
+        echo -e "❌⚠️  The log folder doesn't exist, creating the folder... - $(getColor $BOLD $YELLOW_TEXT "")RETRY${END_COLOR}"
+        mkdir -p $LOG_FOLDER
+        echo -e "✅ Created log folder :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+
+    if [ -d "$LOG_FOLDER" ]; then
+        echo -e "✅ The log folder exists :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     else
-        echo "EXIST"
+        echo -e "❌ The log folder doesn't exist, create the folder... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        sayGoodbyeAfterError
     fi
 }
 
-returnToScriptFolder() {
+checkPID() {
+    if [[ ! -f  "$FOLDER_DATA_LOG/$FILE_PID_LOG" ]]; then
+        echo -e "✅ There is no server instance running... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"    
+    else
+        echo -e "⚠️  An instance of the server is running... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
+        echo -e ""
+        echo -e "❓ Do you want to stop the instance, and run a new one??? (y/n)"
+        kill_instance=true
+        while $kill_instance; do
+            read option_menu_instance
+            case $option_menu_instance in
+                "y"|"Y"|"yes"|"Yes") 
+                    kill_instance=false
+                    killPID;;
+                "n"|"N"|"no"|"No")
+                    kill_instance=false
+                    echo ""
+                    echo -e "👌 We don't stop the game instance, we return to the menu..."
+                    sleep 4s;;
+                *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
+            esac
+        done
+    fi
+}
+
+killPID() {
+    echo -e ""
+    echo -e "🔎 Checking PID..."
+    echo -e "==================="
+    sleep 1s
+    if (kill -9 $(cat $FOLDER_DATA_LOG/$FILE_PID_LOG)); then
+        echo -e "✅ The PID was killed successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+
+        if > "$FOLDER_DATA_LOG/$FILE_PID_LOG" && [ ! -s "$FOLDER_DATA_LOG/$FILE_PID_LOG" ]; then
+            echo -e "✅ The PID file is empty, we can start the server... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        else
+            echo -e "❌ The PID file is not empty, we can't start the server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+            sayGoodbyeAfterError
+        fi
+        sleep 2s
+        echo -e ""
+        echo -e "🚀 Starting the server..."
+        initServer
+        echo -e "🎉 The server was started successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 4s
+
+    else
+        echo -e "❌ The PID wasn't killed successfully... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+}
+
+initServer() {
+    nohup ./BeamMP-Server.ubuntu.22.04.x86_64 > logs/server.log 2> logs/errors.log & echo $! > data/pid.dat
+}
+
+goToScriptFolder() {
     cd .. && cd script
 }
 
-returnToServerFolder() {
+goToServerFolder() {
     cd .. && cd "$SERVER_FOLDER"
 }
 
@@ -426,7 +501,8 @@ bucleMenu() {
                 prepareInstall
                 repeatMenu;;
             3|"start")
-                echo -e "Option $option selected";;
+                startServer
+                repeatMenu;;
             4|"stop")
                 echo -e "Option $option selected";;
             5|"restart")
