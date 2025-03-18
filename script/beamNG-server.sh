@@ -15,12 +15,16 @@
 # Global variables settings
 source settings.env
 CLEAN_GITHUB_URL=$(echo "$GITHUB_URL_BEAMMP_SERVER" | tr -d '\r')
-BYE_TEXT="Bye :D!"
+BYE_TEXT="Bye ${USER}, see you later :D!"
+DOWNLOAD_FOLDER="download"
+DOWNLOAD_FILE_LOG="download.log"
+SERVER_FOLDER="BeamNG-Server"
+SERVER_CONFIG_FILE="ServerConfig.toml"
 
 # Version
 VERSION=0.0.1
 
-# Define variable colours
+# Define variable colors
 END_COLOR="\e[0m"
 
 # Styles
@@ -33,7 +37,7 @@ REVERSE='7'
 HIDDEN='8'
 STRIKE='9'
 
-# Colores de texto
+# Text colors
 BLACK_TEXT='30'
 RED_TEXT='31'
 GREEN_TEXT='32'
@@ -51,7 +55,7 @@ MAGENTA_LIGHT_TEXT='95'
 CYAN_LIGHT_TEXT='96'
 WHITE_LIGHT_TEXT='97'
 
-# Colores de fondo
+# Background colors
 BLACK_BG='40'
 RED_BG='41'
 GREEN_BG='42'
@@ -112,6 +116,7 @@ showMenu() {
     echo -e "Type a number and press ENTER"
 }
 
+
 initScript() {
     getLogo
     showDataAuthor
@@ -129,16 +134,23 @@ prepareDownload() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking tools to installation${END_COLOR}"
     echo -e "=================================="
     isInstalled wget
-    echo "Status wget ${statusWget}"
+    echo -e "Status wget ${statusWget}"
     isInstalled curl
-    echo "Status  ${statusWget}"
+    echo -e "Status  ${statusWget}"
     urlExists $CLEAN_GITHUB_URL
-    echo ""
+    echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading files${END_COLOR}"
     echo -e "========================="
-    echo "💾 Starting to download file of BeamNG-Server..."
+    echo -e "💾 Starting to download file of BeamNG-Server..."
     sleep 2s
     downloadAndInstallServer
+    echo -e "✅⬇️  Downloaded file!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    sleep 2s
+}
+
+prepareInstall() {
+   downloadLogFileExists "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG"
+   searchLogFile "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG"
 }
 
 isInstalled() {
@@ -146,9 +158,7 @@ isInstalled() {
         echo -e "❌ '${1}' installed on the system - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         echo -e ""
         echo -e "You must install '${1}', run 'sudo apt install ${1}'."
-        sleep 2s
-        echo -e "$BYE_TEXT"
-        exit 1
+        sayGoodbyeAfterError
     fi
     echo -e "✅ '${1}' installed on the system - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
 }
@@ -159,19 +169,152 @@ urlExists() {
         echo -e "❌ No exists URL $CLEAN_GITHUB_URL - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         echo -e ""
         echo -e "Check configure 'settings.env' and set a URL on GITHUB_URL_BEAMMP_SERVER"
-        sleep 2s
-        echo -e "$BYE_TEXT"
-        exit 1
+        sayGoodbyeAfterError
     else
         echo -e "✅ URL exists $CLEAN_GITHUB_URL - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     fi
 }
 
 downloadAndInstallServer() {
-    mkdir -p download
-    wget -o download/download.log -nc --progress=bar --show-progress -P ./download $CLEAN_GITHUB_URL
+    mkdir -p $DOWNLOAD_FOLDER
+    wget -o $DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG -nc --progress=bar --show-progress -P ./$DOWNLOAD_FOLDER $CLEAN_GITHUB_URL
 }
 
+downloadLogFileExists() {
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking log and Copy the file server${END_COLOR}"
+    echo -e "======================================"
+    if [ ! -f $1 ]; then
+        echo -e ""
+        echo -e "❌ The download log file doesn't exist, try using the option 1 of the menu - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ The download log file exists :D - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+searchLogFile() {
+    local LINE=$(grep "saved" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
+    local LINE_RETRY=$(grep "already there" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
+
+    if [[ -n $LINE ]]; then
+        local FILE_NAME_WITH_PATH=$(echo "$LINE" | awk -F "[‘’']" '{print $2}')    
+        local FILE_NAME=$(basename "$FILE_NAME_WITH_PATH" | sed 's/\\$//')
+        local INFO_DOWNLOAD=$(echo "$LINE" | grep -oP '\[\K[0-9]+/[0-9]+')
+        local DOWNLOADED=$(echo "$INFO_DOWNLOAD" | cut -d '/' -f 1)
+        local TOTAL_DOWNLOAD=$(echo "$INFO_DOWNLOAD" | cut -d '/' -f 2)
+        if [[ "$DOWNLOADED" != "$TOTAL_DOWNLOAD" ]]; then
+            echo -e "❌ The file are wrong, delete download folder and start with the option 1... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+            sayGoodbyeAfterError
+        fi
+        copyAndInstallFile $FILE_NAME
+        installFileServer $FILE_NAME
+    elif [[ -n $LINE_RETRY ]]; then
+        local FILE_NAME_RETRY=$(echo "$LINE_RETRY" | sed -n "s/.*‘.*\/\([^’]*\)’.*/\1/p")
+        copyAndInstallFile $FILE_NAME_RETRY
+        installFileServer $FILE_NAME_RETRY
+    else
+        echo -e "❌ The log download file is empty... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+}
+
+copyAndInstallFile() {
+    mkdir -p "../${SERVER_FOLDER}/"
+
+    if [[ ! -d "../$SERVER_FOLDER" ]]; then
+        echo -e "❌ The folder to copy file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Created folder of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+
+    cp "$DOWNLOAD_FOLDER/$1" "../$SERVER_FOLDER/"
+
+    if [[ ! -f  "$DOWNLOAD_FOLDER/$1" ]]; then
+        echo -e "❌ The downloaded file doesn't exist, use option 1... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Copied file into "../$SERVER_FOLDER/$1" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+execCommandToInstall() {
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing BeamNG Server:${END_COLOR}"
+    echo -e "================================"
+    cd .. && cd "$SERVER_FOLDER" && ./"$1"
+    if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
+        echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo ""
+        echo -e "🎉 BeamNG-Server installed satisfactorily!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        echo -e ""
+        sleep 4s
+        echo -e "🖊️  Do you want edit the AuthKey with nano editor??? (y/n)"
+        nano_option=true
+        while $nano_option; do
+            read option_menu_nano
+            case $option_menu_nano in
+                "y"|"Y"|"yes"|"Yes") 
+                    nano_option=false
+                    nano ${SERVER_CONFIG_FILE};;
+                "n"|"N"|"no"|"No")
+                    nano_option=false;;
+                *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
+            esac
+        done
+        echo ""
+        sleep 2s
+        echo -e "✅ The server file is installed, if you hasn't edit the config file "$(pwd)/ServerConfig.toml" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        echo -e ""
+        echo -e "📖 More info in README.md repo in the Authentication Key section: https://github.com/mrcodedev/beamng-server-script/blob/main/README.md"
+        echo -e "--------------------------------"
+        echo "👁️  Press any key to continue..."
+        read -n 1 -s
+        cd .. && cd script
+        showMenu
+        bucleMenu
+    fi
+}
+
+installFileServer() {
+    if [[ ! -x  "../$SERVER_FOLDER/$1" ]]; then
+        echo "❌🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        chmod +x "../$SERVER_FOLDER/$1"
+    fi
+
+    if [[ -x  "../$SERVER_FOLDER/$1" ]]; then
+        echo -e "✅🔓 You have permissions to run the app BeamNG Server - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        echo -e ""
+        echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading necessary dependencies for installation${END_COLOR}"
+        echo -e "==================================================="
+        echo -e "Installing neccesary dependencies with 'sudo apt-get install:'"
+        echo -e "liblua5.3-dev curl zip unzip tar cmake make git g++"
+        sleep 3s
+
+        if [[ ! $(sudo apt-get install liblua5.3-dev curl zip unzip tar cmake make git g++) ]]; then
+            echo "❌⛔ Don't have the dependencies... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+            sayGoodbyeAfterError
+        fi
+
+        echo -e ""
+        echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing dependencies:${END_COLOR}"
+        echo -e "================================"
+        isInstalled liblua5.3-dev && isInstalled curl && isInstalled zip && isInstalled unzip && isInstalled tar && isInstalled cmake && isInstalled make && isInstalled git && isInstalled g++
+        echo -e ""
+        execCommandToInstall $1
+    else 
+        echo "You are the evil"
+    fi
+}
+
+sayGoodbyeAfterError() {
+    sleep 2s
+    echo -e "$BYE_TEXT"
+    exit 1
+}
 
 bucleMenu() {
     while $repeatOptions; do
@@ -185,6 +328,7 @@ bucleMenu() {
                 prepareDownload
                 repeatMenu;;
             2|"install") 
+                prepareInstall
                 echo -e "Option $option selected";;
             3|"start")
                 echo -e "Option $option selected";;
@@ -196,6 +340,9 @@ bucleMenu() {
                 echo -e "Option $option selected";;   
             7|"log")
                 echo -e "Option $option selected";;
+            t)
+                echo -e "Testing selected"
+                prepareInstall;;
             *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
         esac
     done
