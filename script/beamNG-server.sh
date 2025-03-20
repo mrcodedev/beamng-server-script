@@ -20,11 +20,13 @@ BYE_TEXT="Bye ${USER}, see you later :D!"
 DOWNLOAD_FOLDER="download"
 DOWNLOAD_FILE_LOG="download.log"
 SERVER_FOLDER="BeamNG-Server"
+SCRIPT_FOLDER="script"
 SERVER_CONFIG_FILE="ServerConfig.toml"
-FOLDER_DATA_LOG="data"
-FILE_NAME_LOG="file-name-download-server.dat"
-FILE_PID_LOG="pid.dat"
+FOLDER_DATA="data"
+FILE_DATA_DOWNLOAD_NAME="file-name-download-server.dat"
+FILE_DATA_PID_NAME="pid.dat"
 LOG_FOLDER="logs"
+FILE_NAME_EXTRACTED=""
 
 # Version
 VERSION=0.0.1
@@ -121,7 +123,6 @@ showMenu() {
     echo -e "Type a number and press ENTER"
 }
 
-
 initScript() {
     getLogo
     showDataAuthor
@@ -135,30 +136,120 @@ repeatMenu() {
     bucleMenu
 }
 
+# Menu Option 1 - OK
 prepareDownload() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking tools to installation${END_COLOR}"
     echo -e "=================================="
-    isInstalled wget
-    echo -e "Status wget ${statusWget}"
-    isInstalled curl
-    echo -e "Status  ${statusWget}"
-    urlExists $CLEAN_GITHUB_URL
+    isInstalledPackage wget
+    isInstalledPackage curl
+    urlEnvGitHubDownloadExists $CLEAN_GITHUB_URL
     echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading files${END_COLOR}"
     echo -e "========================="
     echo -e "💾 Starting to download file of BeamNG-Server..."
     sleep 2s
-    downloadAndInstallServer
-    echo -e "✅⬇️  Downloaded file!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    createFolderDownload
+    downloadFileInstallServer
+    echo -e ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Creating link to download log${END_COLOR}"
+    echo -e "===================================="    
+    getNameDownloadLogFile
+    isDownloadLogFileEmpty
     sleep 2s
 }
 
+# Menu Option 2 - OK
 prepareInstall() {
-   downloadLogFileExists "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG"
-   searchLogFile "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG"
+    echo -e ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Preparing installation:${END_COLOR}"
+    echo -e "================================"
+    checkAndBlockIfServerIsInstalled
+    isDownloadFileLogExists
+    isDownloadLogFileEmpty
+    getNameDownloadLogFile
+    createServerFolder
+    isServerFolderExists
+    createDataServerFolder
+    isServerDataFolderExists
+    createServerDataFileDownload
+    copyInstallFileServer
+    installNecessaryServerDependencies
+    givingPermissionsInstallFile
+    installServerFile
+    editWithNanoServerConfig
+    infoHowToConfigServerConfig
 }
 
-isInstalled() {
+# Menu Option 3 - OK
+startServer() {
+    echo -e ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before start:${END_COLOR}"
+    echo -e "================================"
+    sleep 2s
+    isServerFolderExists
+    isServerConfigFileExists
+    isCreatedServerDataFileDownload
+    checkAuthConfig
+    goToServerFolder
+    isNotEmptyServerDataFileDownload
+    isPIDFileHaveProcess
+    isPIDRunningInSystem "stop"
+    createLogFolderIfNoExist
+    initServer
+    goToScriptFolder
+}
+
+# Menu Option 4
+stopServer() {
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before stop:${END_COLOR}"
+    echo -e "================================"
+    isServerFolderExists
+    isServerConfigFileExists
+    isCreatedServerDataFileDownload
+    checkAuthConfig
+    goToServerFolder
+    isNotEmptyServerDataFileDownload
+    isServerDataFileExists
+    isPIDFileHaveProcess
+    isPIDRunningInSystem "stop"
+}
+
+isServerDataFileExists() {
+    if [ ! -e "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]; then
+       echo -e "❌ The server file data doesn't exist - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+       sayGoodbyeAfterError
+    else
+        echo -e "✅ The server file data exists - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+isServerFolderExists() {
+    if [ -d "../${SERVER_FOLDER}" ]; then
+        echo -e "✅ The server folder exists - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    else
+        echo -e "❌ The server folder doesn't exist - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+}
+
+isServerConfigFileExists() {
+    if [ -f "../${SERVER_FOLDER}/${SERVER_CONFIG_FILE}" ]; then
+        echo -e "✅ The server config file exists - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    else
+        echo -e "❌ The server config file doesn't exist - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+}
+
+checkAndBlockIfServerIsInstalled() {
+    if [ -d "../${SERVER_FOLDER}" ] && [ -f "../${SERVER_FOLDER}/${SERVER_CONFIG_FILE}" ]; then
+        echo -e "✅ The server is already installed, no further installation is required - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 2s
+        repeatMenu
+    fi
+}
+
+isInstalledPackage() {
     if !(dpkg -l | grep $1 > /dev/null); then
         echo -e "❌ '${1}' installed on the system - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         echo -e ""
@@ -168,7 +259,17 @@ isInstalled() {
     echo -e "✅ '${1}' installed on the system - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
 }
 
-urlExists() {
+isPIDRunning() {
+    if > "$FOLDER_DATA/$FILE_DATA_PID_NAME" && [ ! -s "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]; then
+        echo -e "✅ Have a PID assigned, server is running... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    else
+        echo -e "❌ Haven't a PID assigned, server is stopped... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+}
+
+
+urlEnvGitHubDownloadExists() {
     echo "🔎 Checking GitHub URL environment..."
     if !(wget --spider -q $CLEAN_GITHUB_URL); then
         echo -e "❌ No exists URL $CLEAN_GITHUB_URL - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
@@ -180,24 +281,25 @@ urlExists() {
     fi
 }
 
-downloadAndInstallServer() {
-    mkdir -p $DOWNLOAD_FOLDER
-    wget -o $DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG -nc --progress=bar --show-progress -P ./$DOWNLOAD_FOLDER $CLEAN_GITHUB_URL
-}
-
-downloadLogFileExists() {
-    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking log and Copy the file server${END_COLOR}"
-    echo -e "======================================"
-    if [ ! -f $1 ]; then
-        echo -e ""
-        echo -e "❌ The download log file doesn't exist, try using the option 1 of the menu - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        sayGoodbyeAfterError
+createFolderDownload() {
+    if mkdir -p $DOWNLOAD_FOLDER > /dev/null 2>&1; then
+        echo -e "✅📁 Created download folder!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     else
-        echo -e "✅ The download log file exists :D - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        echo -e "❌ The download can't create... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
     fi
 }
 
-searchLogFile() {
+downloadFileInstallServer() {
+    if ! wget -o $DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG -nc --progress=bar --show-progress -P ./$DOWNLOAD_FOLDER $CLEAN_GITHUB_URL; then
+        echo -e "❌ Can't download the file... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else 
+        echo -e "✅⬇️  Downloaded file!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+getNameDownloadLogFile() {
     local LINE=$(grep "saved" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
     local LINE_RETRY=$(grep "already there" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
 
@@ -211,61 +313,117 @@ searchLogFile() {
             echo -e "❌ The file are wrong, delete download folder and start with the option 1... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
             sayGoodbyeAfterError
         fi
-        copyAndInstallFile $FILE_NAME
-        installFileServer $FILE_NAME
+        FILE_NAME_EXTRACTED=$FILE_NAME        
     elif [[ -n $LINE_RETRY ]]; then
         local FILE_NAME_RETRY=$(echo "$LINE_RETRY" | sed -n "s/.*‘.*\/\([^’]*\)’.*/\1/p")
-        copyAndInstallFile $FILE_NAME_RETRY
-        installFileServer $FILE_NAME_RETRY
+        FILE_NAME_EXTRACTED=$FILE_NAME_RETRY
     else
         echo -e "❌ The log download file is empty... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
     fi
 }
 
-copyAndInstallFile() {
-    mkdir -p "../${SERVER_FOLDER}/"
-    mkdir -p "../${SERVER_FOLDER}/$FOLDER_DATA_LOG"
+isDownloadLogFileEmpty() {
+    if [ -z "$FILE_NAME_EXTRACTED" ]; then
+        echo -e "❌ The log link is empty... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
 
-    if [[ ! -d "../$SERVER_FOLDER" ]]; then
-        echo -e "❌ The folder to copy file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+    echo -e "✅🏝️  The log link is fine!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+}
+
+createServerFolder() {
+    if ! { mkdir -p "../${SERVER_FOLDER}/"; } then
+        echo -e "❌ Is not possible create server folders... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
     else
         echo -e "✅ Created folder of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         sleep 0.5s
     fi
+}
 
-    if [[ ! -d "../${SERVER_FOLDER}/$FOLDER_DATA_LOG" ]]; then
-        echo -e "❌ The folder data log server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+isServerFolderExists() {
+    if [[ ! -d "../$SERVER_FOLDER" ]]; then
+        echo -e "❌ Don't exist folder of the server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
     else
-        echo -e "✅ Created folder data log of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-        sleep 0.5s
-    fi
-
-    if ! echo "$1" > "../${SERVER_FOLDER}/$FOLDER_DATA_LOG/$FILE_NAME_LOG"; then
-        echo -e "❌ Don't create log file name server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        sayGoodbyeAfterError
-    else 
-        echo -e "✅ Created log folder file name server "../$SERVER_FOLDER/$FOLDER_DATA_LOG/$FILE_NAME_LOG" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-        sleep 0.5s
-    fi
-
-    cp "$DOWNLOAD_FOLDER/$1" "../$SERVER_FOLDER/"
-
-    if [[ ! -f  "$DOWNLOAD_FOLDER/$1" ]]; then
-        echo -e "❌ The downloaded file doesn't exist, use option 1... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ Copied file into "../$SERVER_FOLDER/$1" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        echo -e "✅ Exists folder of the server "../$SERVER_FOLDER/" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         sleep 0.5s
     fi
 }
 
-execCommandToInstall() {
+createDataServerFolder() {
+    if ! { mkdir -p "../${SERVER_FOLDER}/$FOLDER_DATA"; } then
+        echo -e "❌ Is not possible create server data folder... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Created folder server data "../${SERVER_FOLDER}/$FOLDER_DATA" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+isServerDataFolderExists() {
+    if [[ ! -d "../${SERVER_FOLDER}/$FOLDER_DATA" ]]; then
+        echo -e "❌ Don't exist data folder of the server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exists data folder of the server "../$SERVER_FOLDER/$FOLDER_DATA" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+createServerDataFileDownload() {
+    if ! echo "$FILE_NAME_EXTRACTED" > "../${SERVER_FOLDER}/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME"; then
+        echo -e "❌ Don't create data file name server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else 
+        echo -e "✅ Created data file file name server "../$SERVER_FOLDER/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+isCreatedServerDataFileDownload() {
+    if [[ ! -f "../${SERVER_FOLDER}/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME" ]]; then
+        echo -e "❌ Don't exist data file name server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exists data file name server "../$SERVER_FOLDER/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+isNotEmptyServerDataFileDownload() {
+    if [[ -z $(cat "../${SERVER_FOLDER}/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME") ]]; then
+        echo -e "❌ The data file name server is empty... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ The data file name server is not empty... $(cat "../${SERVER_FOLDER}/$FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME") - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+copyInstallFileServer() {
+    if ! cp "$DOWNLOAD_FOLDER/$FILE_NAME_EXTRACTED" "../$SERVER_FOLDER/"; then
+        echo -e "❌ It is not possible copy the dowloaded file... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    fi
+
+    if [[ ! -f "$DOWNLOAD_FOLDER/$FILE_NAME_EXTRACTED" ]]; then
+        echo -e "❌ The downloaded file doesn't exist, use option 1... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Copied file into "../$SERVER_FOLDER/$FILE_NAME_EXTRACTED" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 0.5s
+    fi
+}
+
+installServerFile() {
+    echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing BeamNG Server:${END_COLOR}"
     echo -e "================================"
-    goToServerFolder && ./"$1"
+    goToServerFolder
+    
+    ./"$FILE_NAME_EXTRACTED"
+
     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
         echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -274,60 +432,47 @@ execCommandToInstall() {
         echo -e "🎉 BeamNG-Server installed satisfactorily!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         echo -e ""
         sleep 4s
-        echo -e "🖊️  Do you want edit the AuthKey with nano editor??? (y/n)"
-        nano_option=true
-        while $nano_option; do
-            read option_menu_nano
-            case $option_menu_nano in
-                "y"|"Y"|"yes"|"Yes") 
-                    nano_option=false
-                    nano ${SERVER_CONFIG_FILE};;
-                "n"|"N"|"no"|"No")
-                    nano_option=false;;
-                *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
-            esac
-        done
-        echo ""
-        sleep 2s
-        echo -e "✅ The server file is installed, if you hasn't edit the config file "$(pwd)/ServerConfig.toml" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-        echo -e ""
-        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
-        echo -e "--------------------------------"
-        echo "👁️  Press any key to continue..."
-        read -n 1 -s
-        goToScriptFolder
     fi
 }
 
-installFileServer() {
-    if [[ ! -x  "../$SERVER_FOLDER/$1" ]]; then
-        echo -e "⚠️ 🔒 Don't have permissions to run the server file, giving permissions... - $(getColor $BOLD $YELLOW_TEXT "")RETRY${END_COLOR}"
+editWithNanoServerConfig() {
+    echo -e "🖊️  Do you want edit the AuthKey with nano editor??? (y/n)"
+    nano_option=true
+    while $nano_option; do
+        read option_menu_nano
+        case $option_menu_nano in
+            "y"|"Y"|"yes"|"Yes") 
+                nano_option=false
+                nano ${SERVER_CONFIG_FILE};;
+            "n"|"N"|"no"|"No")
+                nano_option=false;;
+            *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
+        esac
+    done
+}
+
+infoHowToConfigServerConfig() {
+    sleep 2s
+    echo -e "✅ The server file is installed, if you hasn't edit the config file "$(pwd)/ServerConfig.toml" - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    echo -e ""
+    echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
+    echo -e "--------------------------------"
+    echo "👁️  Press any key to continue..."
+    read -n 1 -s
+    echo ""
+}
+
+givingPermissionsInstallFile() {
+    if [[ ! -x  "../$SERVER_FOLDER/$FILE_NAME_EXTRACTED" ]]; then
+        echo -e "⚠️ 🔒 Don't have permissions to run the server file... giving permissions... - $(getColor $BOLD $YELLOW_TEXT "")RETRY${END_COLOR}"
+        echo -e "🔐 Giving permissions..."
         sleep 2s
-        chmod +x "../$SERVER_FOLDER/$1"
+        chmod +x "../$SERVER_FOLDER/$FILE_NAME_EXTRACTED"
     fi
 
-    if [[ -x  "../$SERVER_FOLDER/$1" ]]; then
+    if [[ -x  "../$SERVER_FOLDER/$FILE_NAME_EXTRACTED" ]]; then
         echo -e "✅🔓 You have permissions to run the app BeamNG Server - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         sleep 2s
-        echo -e ""
-        echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading necessary dependencies for installation${END_COLOR}"
-        echo -e "==================================================="
-        echo -e "Installing neccesary dependencies with 'sudo apt-get install:'"
-        echo -e "liblua5.3-dev curl zip unzip tar cmake make git g++"
-        sleep 3s
-
-        if [[ ! $(sudo apt-get install liblua5.3-dev curl zip unzip tar cmake make git g++) ]]; then
-            echo -e "❌⛔ Don't have the dependencies... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-            echo -e ""
-            sayGoodbyeAfterError
-        fi
-
-        echo -e ""
-        echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing dependencies:${END_COLOR}"
-        echo -e "================================"
-        isInstalled liblua5.3-dev && isInstalled curl && isInstalled zip && isInstalled unzip && isInstalled tar && isInstalled cmake && isInstalled make && isInstalled git && isInstalled g++
-        echo -e ""
-        execCommandToInstall $1
     else 
         echo -e "❌🔒 Don't have permissions to run the server file, :(... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         echo ""
@@ -335,72 +480,29 @@ installFileServer() {
     fi
 }
 
-startServer() {
+installNecessaryServerDependencies() {
     echo -e ""
-    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before start:${END_COLOR}"
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Downloading necessary dependencies for installation${END_COLOR}"
+    echo -e "==================================================="
+    echo -e "📦 Installing neccesary dependencies with 'sudo apt-get install:'"
+    echo -e "➡️  liblua5.3-dev curl zip unzip tar cmake make git g++"
+    sleep 3s
+
+    if [[ ! $(sudo apt-get install liblua5.3-dev curl zip unzip tar cmake make git g++) ]]; then
+        echo -e "❌⛔ Don't have the dependencies... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        sayGoodbyeAfterError
+    fi
+
+    echo -e ""
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Installing dependencies:${END_COLOR}"
     echo -e "================================"
+    isInstalledPackage liblua5.3-dev && isInstalledPackage curl && isInstalledPackage zip && isInstalledPackage unzip && isInstalledPackage tar && isInstalledPackage cmake && isInstalledPackage make && isInstalledPackage git && isInstalledPackage g++
+    echo -e ""
     sleep 2s
-    goToServerFolder
-    checkFileServer
-    checkFileNameLogServer
-    checkConfigFile
-    checkAuthConfig
-    checkLogFolder
-    checkPID
-    goToScriptFolder
-    repeatOptions=true
 }
 
-checkFileNameLogServer() {
-    local FILE_NAME_SERVER=$(cat $ $FOLDER_DATA_LOG/$FILE_NAME_LOG 2> /dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-    if [[ ! -f  ${FILE_NAME_SERVER} ]]; then
-        echo -e "❌ The log name server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e ""
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ Exist the log name server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-checkFileServer() {
-    local FILE_SERVER_NAME=$(cat $FOLDER_DATA_LOG/$FILE_NAME_LOG)
-    if [[ ! -f  ${FILE_SERVER_NAME} ]]; then
-        echo -e "❌ The file server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e ""
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ Exist the file server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-checkConfigFile() {
-     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
-        echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ Exist the $SERVER_CONFIG_FILE file config :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-checkAuthConfig() {
-    local AUTH_KEY=$(grep '^AuthKey =' ServerConfig.toml | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
-
-    if [[ -z "$AUTH_KEY" ]]; then
-        echo -e "❌ AuthKey has no value, you must give it a value, see the README to see how to do this - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
-        echo -e "--------------------------------"
-        echo "👁️  Press any key to continue..."
-        read -n 1 -s
-        echo -e ""
-        repeatMenu
-    else
-        echo -e "✅ AuthKey has a value: $AUTH_KEY - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-checkLogFolder() {
+createLogFolderIfNoExist() {
     if [ ! -d "$LOG_FOLDER" ]; then
         echo -e "❌⚠️  The log folder doesn't exist, creating the folder... - $(getColor $BOLD $YELLOW_TEXT "")RETRY${END_COLOR}"
         mkdir -p $LOG_FOLDER
@@ -416,51 +518,64 @@ checkLogFolder() {
     fi
 }
 
-checkPID() {
-    if [[ ! -f  "$FOLDER_DATA_LOG/$FILE_PID_LOG" ]]; then
-        echo -e "✅ There is no server instance running... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"    
+isPIDFileHaveProcess() {
+    if [ ! -s "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]; then
+        echo -e "✅ There is no server file PID... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     else
-        echo -e "⚠️  An instance of the server is running... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
-        echo -e ""
-        echo -e "❓ Do you want to stop the instance, and run a new one??? (y/n)"
-        kill_instance=true
-        while $kill_instance; do
-            read option_menu_instance
-            case $option_menu_instance in
-                "y"|"Y"|"yes"|"Yes") 
-                    kill_instance=false
-                    killPID;;
-                "n"|"N"|"no"|"No")
-                    kill_instance=false
-                    echo ""
-                    echo -e "👌 We don't stop the game instance, we return to the menu..."
-                    sleep 4s;;
-                *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
-            esac
-        done
+        echo -e "⚠️  The file contains a saved PID of the server... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
+        sleep 2s
     fi
 }
 
-killPID() {
+isPIDRunningInSystem() {
+    if ! kill -0 $(cat "$FOLDER_DATA/$FILE_DATA_PID_NAME") 2>/dev/null; then
+        # FIX
+        # SHOW INTO TERMINAL
+        echo -e "✅ The process is not running - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        sleep 2s
+    elif [[ "$1" == "stop" ]]; then
+        stopPIDRunning
+    elif [[ "$1" == "bye" ]]; then
+        echo -e "❌ The process is in execution... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    elif [[ "$1" == "menu" ]]; then
+        echo -e "❌ The process is in execution... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        repeatMenu
+    fi
+
+}
+
+stopPIDRunning() {
+    echo -e "⚠️  An instance of the server is running... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
     echo -e ""
-    echo -e "🔎 Checking PID..."
+    echo -e "❓ Do you want to stop the instance, and run a new one??? (y/n)"
+    kill_instance=true
+    while $kill_instance; do
+        read option_menu_instance
+        case $option_menu_instance in
+            "y"|"Y"|"yes"|"Yes") 
+                kill_instance=false
+                killPIDInstance;;
+            "n"|"N"|"no"|"No")
+                kill_instance=false
+                echo ""
+                echo -e "👌 We don't stop the game instance, we return to the menu..."
+                sleep 4s
+                repeatMenu;;
+            *) echo -e "$(getColor $BOLD $RED_TEXT "")ERROR:${END_COLOR} Wrong option, choose another one...";; 
+        esac
+    done
+}
+
+killPIDInstance() {
+    echo -e ""
+    echo -e "🔎 Stopping PID..."
     echo -e "==================="
     sleep 1s
-    if (kill -9 $(cat $FOLDER_DATA_LOG/$FILE_PID_LOG)); then
+    if (kill -9 $(cat $FOLDER_DATA/$FILE_DATA_PID_NAME) 2>/dev/null); then
         echo -e "✅ The PID was killed successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-
-        if > "$FOLDER_DATA_LOG/$FILE_PID_LOG" && [ ! -s "$FOLDER_DATA_LOG/$FILE_PID_LOG" ]; then
-            echo -e "✅ The PID file is empty, we can start the server... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-        else
-            echo -e "❌ The PID file is not empty, we can't start the server... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-            sayGoodbyeAfterError
-        fi
+        isPIDRunningInSystem
         sleep 2s
-        echo -e ""
-        echo -e "🚀 Starting the server..."
-        initServer
-        echo -e "🎉 The server was started successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-        sleep 4s
 
     else
         echo -e "❌ The PID wasn't killed successfully... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
@@ -469,21 +584,96 @@ killPID() {
 }
 
 initServer() {
+    echo -e ""
+    echo -e "🚀 Starting the server..."
+    sleep 2s
+    # FIX
+    # CHANGE TO VARIABLE :(
     nohup ./BeamMP-Server.ubuntu.22.04.x86_64 > logs/server.log 2> logs/errors.log & echo $! > data/pid.dat
+    echo -e "🎉 The server was started successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    sleep 2s
 }
 
 goToScriptFolder() {
-    cd .. && cd script
+    if cd .. && cd "$SCRIPT_FOLDER" > /dev/null 2>&1; then
+        echo -e "📁 Changed to the $SCRIPT_FOLDER folder correctly."
+    else
+        echo -e "❌ Error: Could not change to directory $SCRIPT_FOLDER."
+        sayGoodbyeAfterError
+    fi  
 }
 
 goToServerFolder() {
-    cd .. && cd "$SERVER_FOLDER"
+    if cd .. && cd "$SERVER_FOLDER" > /dev/null 2>&1; then
+        echo -e "📁 Changed to the $SERVER_FOLDER folder correctly."
+    else
+        echo -e "❌ Error: Could not change to directory $SERVER_FOLDER."
+        sayGoodbyeAfterError
+    fi
 }
 
 sayGoodbyeAfterError() {
-    sleep 2s
-    echo -e "$BYE_TEXT"
+    sleep 1s
+    echo -e "👋 $BYE_TEXT"
     exit 1
+}
+
+# FIX
+# CHECK IF I WANT THIS FUNCTION
+isExecutablcheckFileNameLogServer() {
+    local FILE_NAME_SERVER=$(cat $FOLDER_DATA/$FILE_DATA_DOWNLOAD_NAME 2> /dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    if [[ ! -f  ${FILE_NAME_SERVER} ]]; then
+        echo -e "❌ The log name server doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e ""
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exist the log name server :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+# FIX
+# CHECK IF I WANT THIS FUNCTION
+checkConfigFile() {
+     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
+        echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Exist the $SERVER_CONFIG_FILE file config :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+# FIX
+# CHECK IF I WANT THIS FUNCTION
+checkAuthConfig() {
+    local AUTH_KEY=$(grep '^AuthKey =' ../${SERVER_FOLDER}/${SERVER_CONFIG_FILE} | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
+
+    if [[ -z "$AUTH_KEY" ]]; then
+        echo -e "❌ AuthKey has no value, you must give it a value, see the README to see how to do this - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
+        echo -e "--------------------------------"
+        echo "👁️  Press any key to continue..."
+        read -n 1 -s
+        echo -e ""
+        repeatMenu
+    else
+        echo -e "✅ AuthKey has a value: $AUTH_KEY - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
+}
+
+# FIX
+# CHECK IF I WANT THIS FUNCTION
+isDownloadFileLogExists() {
+    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking log and Copy the file server${END_COLOR}"
+    echo -e "======================================"
+    if [ ! "../$LOG_FOLDER/$DOWNLOAD_FILE_LOG" ]; then
+        echo -e ""
+        echo -e "❌ The download log file doesn't exist, try using the option 1 of the menu - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ The download log file exists :D - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+    fi
 }
 
 bucleMenu() {
@@ -493,18 +683,20 @@ bucleMenu() {
         case $option in
             0|"exit"|"q") 
                 repeatOptions=false
-                echo -e "Goodbye ${USER}, see you later!!! :D";;
+                sayGoodbyeAfterError;;
             1|"download") 
                 prepareDownload
                 repeatMenu;;
             2|"install") 
                 prepareInstall
+                goToScriptFolder
                 repeatMenu;;
             3|"start")
                 startServer
                 repeatMenu;;
             4|"stop")
-                echo -e "Option $option selected";;
+                stopServer
+                repeatMenu;;
             5|"restart")
                 echo -e "Option $option selected";;
             6|"status")
