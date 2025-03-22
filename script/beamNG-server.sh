@@ -29,7 +29,7 @@ LOG_FOLDER="logs"
 FILE_NAME_EXTRACTED=""
 
 # Version
-VERSION=0.0.1
+VERSION=0.4.0
 
 # Define variable colors
 END_COLOR="\e[0m"
@@ -192,7 +192,7 @@ startServer() {
     checkAuthConfig
     goToServerFolder
     isNotEmptyServerDataFileDownload
-    isPIDFileHaveProcess
+    isPIDFileHaveProcess "create"
     isPIDRunningInSystem "stop"
     createLogFolderIfNoExist
     initServer
@@ -519,11 +519,24 @@ createLogFolderIfNoExist() {
 }
 
 isPIDFileHaveProcess() {
-    if [ ! -s "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]; then
+    if [ ! -s "$FOLDER_DATA/$FILE_DATA_PID_NAME" ] && [ $1 == "create" ]; then
+        echo -e "✅ Creating PID File... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+        createEmptyPIDFile
+    elif [ ! -s "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]; then
         echo -e "✅ There is no server file PID... - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
+
     else
         echo -e "⚠️  The file contains a saved PID of the server... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
         sleep 2s
+    fi
+}
+
+createEmptyPIDFile() {
+    if ! echo "" > "$FOLDER_DATA/$FILE_DATA_PID_NAME"; then
+        echo -e "❌ The PID file can't create... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        sayGoodbyeAfterError
+    else
+        echo -e "✅ Created PID file :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     fi
 }
 
@@ -535,6 +548,7 @@ isPIDRunningInSystem() {
         sleep 2s
     elif [[ "$1" == "stop" ]]; then
         stopPIDRunning
+        echo "" >"$FOLDER_DATA/$FILE_DATA_PID_NAME"
     elif [[ "$1" == "bye" ]]; then
         echo -e "❌ The process is in execution... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -548,7 +562,7 @@ isPIDRunningInSystem() {
 stopPIDRunning() {
     echo -e "⚠️  An instance of the server is running... - $(getColor $BOLD $YELLOW_TEXT "")WARNING${END_COLOR}"
     echo -e ""
-    echo -e "❓ Do you want to stop the instance, and run a new one??? (y/n)"
+    echo -e "❓ Do you want to stop the instance??? (y/n)"
     kill_instance=true
     while $kill_instance; do
         read option_menu_instance
