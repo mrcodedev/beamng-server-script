@@ -1,5 +1,12 @@
 # CHANGELOG BEAMNG-SERVER-SCRIPT
 
+## 0.5.0
+
+### Minor Changes
+
+-   SCRIPT SH:
+    -   Restarting the server checking all the small things of the start
+
 ## 0.4.0
 
 ### Minor Changes

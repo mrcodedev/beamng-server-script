@@ -29,7 +29,7 @@ LOG_FOLDER="logs"
 FILE_NAME_EXTRACTED=""
 
 # Version
-VERSION=0.4.0
+VERSION=0.5.0
 
 # Define variable colors
 END_COLOR="\e[0m"
@@ -212,6 +212,13 @@ stopServer() {
     isServerDataFileExists
     isPIDFileHaveProcess
     isPIDRunningInSystem "stop"
+}
+
+# Menu Option 5
+restartServer() {
+    stopServer
+    initServer
+    goToScriptFolder
 }
 
 isServerDataFileExists() {
@@ -712,7 +719,8 @@ bucleMenu() {
                 stopServer
                 repeatMenu;;
             5|"restart")
-                echo -e "Option $option selected";;
+                restartServer
+                repeatMenu;;
             6|"status")
                 echo -e "Option $option selected";;   
             7|"log")
