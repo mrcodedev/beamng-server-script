@@ -178,6 +178,7 @@ prepareInstall() {
     installServerFile
     editWithNanoServerConfig
     infoHowToConfigServerConfig
+
 }
 
 # Menu Option 3 - OK
@@ -199,7 +200,7 @@ startServer() {
     goToScriptFolder
 }
 
-# Menu Option 4
+# Menu Option 4 - OK
 stopServer() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before stop:${END_COLOR}"
     echo -e "================================"
@@ -212,13 +213,25 @@ stopServer() {
     isServerDataFileExists
     isPIDFileHaveProcess
     isPIDRunningInSystem "stop"
+    goToScriptFolder
 }
 
-# Menu Option 5
+# Menu Option 5 - OK
 restartServer() {
     stopServer
+    goToServerFolder
     initServer
     goToScriptFolder
+}
+
+# Menu Option 6
+statusServer() {
+    echo -e "🔎 Status Server Info"
+    echo -e "=========================="
+    sleep 2s
+    goToServerFolder
+    infoPIDFileHaveProcess
+    infoPIDHaveProcessSystem
 }
 
 isServerDataFileExists() {
@@ -538,6 +551,25 @@ isPIDFileHaveProcess() {
     fi
 }
 
+infoPIDFileHaveProcess() {
+    if [[ -f "$FOLDER_DATA/$FILE_DATA_PID_NAME" ]]; then
+        echo -e "ℹ️  The PID file contains a process."
+    else
+        echo -e "ℹ️  The PID file doesn't contain a process."        
+    fi
+    sleep 1s
+}
+
+infoPIDHaveProcessSystem() {
+    if ! kill -0 $(cat "$FOLDER_DATA/$FILE_DATA_PID_NAME") 2>/dev/null; then
+        echo -e "ℹ️  The process is not running in the system."
+    else
+        echo -e "ℹ️  The process is running in the system."
+    fi
+    sleep 2s
+
+}
+
 createEmptyPIDFile() {
     if ! echo "" > "$FOLDER_DATA/$FILE_DATA_PID_NAME"; then
         echo -e "❌ The PID file can't create... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
@@ -555,7 +587,7 @@ isPIDRunningInSystem() {
         sleep 2s
     elif [[ "$1" == "stop" ]]; then
         stopPIDRunning
-        echo "" >"$FOLDER_DATA/$FILE_DATA_PID_NAME"
+        echo "" > "$FOLDER_DATA/$FILE_DATA_PID_NAME"
     elif [[ "$1" == "bye" ]]; then
         echo -e "❌ The process is in execution... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         sayGoodbyeAfterError
@@ -563,7 +595,6 @@ isPIDRunningInSystem() {
         echo -e "❌ The process is in execution... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
         repeatMenu
     fi
-
 }
 
 stopPIDRunning() {
@@ -610,7 +641,8 @@ initServer() {
     sleep 2s
     # FIX
     # CHANGE TO VARIABLE :(
-    nohup ./BeamMP-Server.ubuntu.22.04.x86_64 > logs/server.log 2> logs/errors.log & echo $! > data/pid.dat
+    echo "VAMOS A INICIAR ESTA MIERDA"
+    nohup ./BeamMP-Server.ubuntu.22.04.x86_64 > ./logs/server.log 2> logs/errors.log & echo $! > data/pid.dat
     echo -e "🎉 The server was started successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     sleep 2s
 }
@@ -722,7 +754,8 @@ bucleMenu() {
                 restartServer
                 repeatMenu;;
             6|"status")
-                echo -e "Option $option selected";;   
+                statusServer
+                repeatMenu;;   
             7|"log")
                 echo -e "Option $option selected";;
             t)
