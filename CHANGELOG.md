@@ -1,5 +1,12 @@
 # CHANGELOG BEAMNG-SERVER-SCRIPT
 
+## 0.7.0
+
+### Minor Changes
+
+-   SCRIPT SH:
+    -   Show Server Log and fixed little things
+
 ## 0.6.0
 
 ### Minor Changes

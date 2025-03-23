@@ -26,10 +26,12 @@ FOLDER_DATA="data"
 FILE_DATA_DOWNLOAD_NAME="file-name-download-server.dat"
 FILE_DATA_PID_NAME="pid.dat"
 LOG_FOLDER="logs"
+SERVER_LOG_FILE="server.log"
+ERRORS_SERVER_LOG_FILE="errors.log"
 FILE_NAME_EXTRACTED=""
 
 # Version
-VERSION=0.5.0
+VERSION=0.7.0
 
 # Define variable colors
 END_COLOR="\e[0m"
@@ -136,7 +138,6 @@ repeatMenu() {
     bucleMenu
 }
 
-# Menu Option 1 - OK
 prepareDownload() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking tools to installation${END_COLOR}"
     echo -e "=================================="
@@ -153,12 +154,11 @@ prepareDownload() {
     echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Creating link to download log${END_COLOR}"
     echo -e "===================================="    
-    getNameDownloadLogFile
+    getNameDownloadFile
     isDownloadLogFileEmpty
     sleep 2s
 }
 
-# Menu Option 2 - OK
 prepareInstall() {
     echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Preparing installation:${END_COLOR}"
@@ -166,7 +166,7 @@ prepareInstall() {
     checkAndBlockIfServerIsInstalled
     isDownloadFileLogExists
     isDownloadLogFileEmpty
-    getNameDownloadLogFile
+    getNameDownloadFile
     createServerFolder
     isServerFolderExists
     createDataServerFolder
@@ -181,7 +181,6 @@ prepareInstall() {
 
 }
 
-# Menu Option 3 - OK
 startServer() {
     echo -e ""
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before start:${END_COLOR}"
@@ -200,7 +199,6 @@ startServer() {
     goToScriptFolder
 }
 
-# Menu Option 4 - OK
 stopServer() {
     echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking before stop:${END_COLOR}"
     echo -e "================================"
@@ -216,15 +214,11 @@ stopServer() {
     goToScriptFolder
 }
 
-# Menu Option 5 - OK
 restartServer() {
     stopServer
-    goToServerFolder
     initServer
-    goToScriptFolder
 }
 
-# Menu Option 6
 statusServer() {
     echo -e "🔎 Status Server Info"
     echo -e "=========================="
@@ -232,6 +226,29 @@ statusServer() {
     goToServerFolder
     infoPIDFileHaveProcess
     infoPIDHaveProcessSystem
+    goToScriptFolder
+}
+
+showLogServer() {
+    goToServerFolder
+    checkServerLog
+    goToScriptFolder
+}
+
+checkServerLog() {
+    echo -e ""
+    echo -e "📜 Show log server"
+    echo -e "=========================="
+    if [ -f "$LOG_FOLDER/$SERVER_LOG_FILE" ]; then
+        echo -e "🖊️  Opening nano editor, to exit press CTRL+X"
+        sleep 2s
+        nano -v "$LOG_FOLDER/$SERVER_LOG_FILE"
+    else
+        echo -e "❌ The log file doesn't exist... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
+        echo -e "Back to the menu"
+        sleep 2s
+        repeatMenu
+    fi
 }
 
 isServerDataFileExists() {
@@ -319,7 +336,8 @@ downloadFileInstallServer() {
     fi
 }
 
-getNameDownloadLogFile() {
+getNameDownloadFile() {
+    goToScriptFolder
     local LINE=$(grep "saved" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
     local LINE_RETRY=$(grep "already there" "./$DOWNLOAD_FOLDER/$DOWNLOAD_FILE_LOG" | tail -n 1)
 
@@ -581,8 +599,6 @@ createEmptyPIDFile() {
 
 isPIDRunningInSystem() {
     if ! kill -0 $(cat "$FOLDER_DATA/$FILE_DATA_PID_NAME") 2>/dev/null; then
-        # FIX
-        # SHOW INTO TERMINAL
         echo -e "✅ The process is not running - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
         sleep 2s
     elif [[ "$1" == "stop" ]]; then
@@ -637,12 +653,10 @@ killPIDInstance() {
 
 initServer() {
     echo -e ""
+    getNameDownloadFile
     echo -e "🚀 Starting the server..."
     sleep 2s
-    # FIX
-    # CHANGE TO VARIABLE :(
-    echo "VAMOS A INICIAR ESTA MIERDA"
-    nohup ./BeamMP-Server.ubuntu.22.04.x86_64 > ./logs/server.log 2> logs/errors.log & echo $! > data/pid.dat
+    nohup ./../"$SERVER_FOLDER"/"$FILE_NAME_EXTRACTED" > ../"$SERVER_FOLDER"/"$LOG_FOLDER"/"$SERVER_LOG_FILE" 2> ../"$SERVER_FOLDER"/"$LOG_FOLDER"/"$ERRORS_SERVER_LOG_FILE" & echo $! > ../"$SERVER_FOLDER"/"$FOLDER_DATA"/"$FILE_DATA_PID_NAME"
     echo -e "🎉 The server was started successfully!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
     sleep 2s
 }
@@ -685,50 +699,6 @@ isExecutablcheckFileNameLogServer() {
     fi
 }
 
-# FIX
-# CHECK IF I WANT THIS FUNCTION
-checkConfigFile() {
-     if [[ ! -f  ${SERVER_CONFIG_FILE} ]]; then
-        echo -e "❌ The ServerConfig.toml file doesn't exist, use option 2... - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ Exist the $SERVER_CONFIG_FILE file config :D!!! - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-# FIX
-# CHECK IF I WANT THIS FUNCTION
-checkAuthConfig() {
-    local AUTH_KEY=$(grep '^AuthKey =' ../${SERVER_FOLDER}/${SERVER_CONFIG_FILE} | sed -n 's/^AuthKey = "\(.*\)"/\1/p')
-
-    if [[ -z "$AUTH_KEY" ]]; then
-        echo -e "❌ AuthKey has no value, you must give it a value, see the README to see how to do this - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        echo -e "📖 More info in README.md repo in the Authentication Key section: ${README_URL}"
-        echo -e "--------------------------------"
-        echo "👁️  Press any key to continue..."
-        read -n 1 -s
-        echo -e ""
-        repeatMenu
-    else
-        echo -e "✅ AuthKey has a value: $AUTH_KEY - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
-# FIX
-# CHECK IF I WANT THIS FUNCTION
-isDownloadFileLogExists() {
-    echo -e "$(getColor $BOLD $GREEN_TEXT "")Checking log and Copy the file server${END_COLOR}"
-    echo -e "======================================"
-    if [ ! "../$LOG_FOLDER/$DOWNLOAD_FILE_LOG" ]; then
-        echo -e ""
-        echo -e "❌ The download log file doesn't exist, try using the option 1 of the menu - $(getColor $BOLD $RED_TEXT "")ERROR${END_COLOR}"
-        sayGoodbyeAfterError
-    else
-        echo -e "✅ The download log file exists :D - $(getColor $BOLD $GREEN_TEXT "")OK${END_COLOR}"
-    fi
-}
-
 bucleMenu() {
     while $repeatOptions; do
         read option
@@ -757,7 +727,8 @@ bucleMenu() {
                 statusServer
                 repeatMenu;;   
             7|"log")
-                echo -e "Option $option selected";;
+                showLogServer
+                repeatMenu;;
             t)
                 echo -e "Testing selected"
                 startServer;;
